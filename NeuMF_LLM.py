@@ -80,6 +80,23 @@ class NeuMF(nn.Module):
         outputs = self.text_model(**inputs)
         return outputs.last_hidden_state.mean(dim=1)
 
+    def _get_text_embeddings_llm(self, texts):
+        """Generate text embeddings using pre-trained embedding model and map to target dimension."""
+        inputs = self.tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=128)
+        outputs = self.text_model(**inputs)
+
+        # Get the embeddings from the model (e.g., mean pooling over the sequence dimension)
+        embeddings = outputs.last_hidden_state.mean(dim=1)  # Shape: (batch_size, hidden_size)
+
+        # Map embeddings to target dimension (layers[0] // 2)
+        target_dim = self.layers[0] // 2
+        if embeddings.size(1) != target_dim:
+            # Add a linear layer to map to target dimension
+            self.embedding_projection = nn.Linear(embeddings.size(1), target_dim).to(embeddings.device)
+            embeddings = self.embedding_projection(embeddings)  # Shape: (batch_size, target_dim)
+
+        return embeddings
+
     def forward(self, user_input, item_input):
         # GMF Part
         mf_user_latent = self.mf_user_embedding(user_input)
