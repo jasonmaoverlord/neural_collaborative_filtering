@@ -1,0 +1,193 @@
+# !/usr/bin/env python
+# -*- coding:utf-8 -*-
+# @FileName    :NeuMF_Torch.py
+# @Time        :2025/1/21 19:41
+# @Author      :JasonMa
+# @ProjectName :neural_collaborative_filtering
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+import numpy as np
+
+
+# Dataset class for user-item interactions
+class InteractionDataset(Dataset):
+    def __init__(self, user_input, item_input, labels):
+        self.user_input = torch.tensor(user_input, dtype=torch.long)
+        self.item_input = torch.tensor(item_input, dtype=torch.long)
+        self.labels = torch.tensor(labels, dtype=torch.float32)
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return self.user_input[idx], self.item_input[idx], self.labels[idx]
+
+
+# NeuMF Model
+class NeuMF(nn.Module):
+    def __init__(self, num_users, num_items, mf_dim, layers, reg_layers, reg_mf):
+        super(NeuMF, self).__init__()
+
+        # GMF Embedding Layers
+        self.mf_user_embedding = nn.Embedding(num_users, mf_dim)
+        self.mf_item_embedding = nn.Embedding(num_items, mf_dim)
+
+        # MLP Embedding Layers
+        self.mlp_user_embedding = nn.Embedding(num_users, layers[0] // 2)
+        self.mlp_item_embedding = nn.Embedding(num_items, layers[0] // 2)
+
+        # MLP Layers
+        mlp_modules = []
+        for i in range(1, len(layers)):
+            mlp_modules.append(nn.Linear(layers[i - 1], layers[i]))
+            mlp_modules.append(nn.ReLU())
+        self.mlp = nn.Sequential(*mlp_modules)
+
+        # Final Prediction Layer
+        self.predict_layer = nn.Linear(mf_dim + layers[-1], 1)
+        self.sigmoid = nn.Sigmoid()
+
+        # Regularization parameters
+        self.reg_layers = reg_layers
+        self.reg_mf = reg_mf
+
+    def forward(self, user_input, item_input):
+        # GMF Part
+        mf_user_latent = self.mf_user_embedding(user_input)
+        mf_item_latent = self.mf_item_embedding(item_input)
+        mf_vector = mf_user_latent * mf_item_latent
+
+        # MLP Part
+        mlp_user_latent = self.mlp_user_embedding(user_input)
+        mlp_item_latent = self.mlp_item_embedding(item_input)
+        mlp_vector = torch.cat([mlp_user_latent, mlp_item_latent], dim=-1)
+        mlp_vector = self.mlp(mlp_vector)
+
+        # Concatenate GMF and MLP parts
+        predict_vector = torch.cat([mf_vector, mlp_vector], dim=-1)
+
+        # Final Prediction
+        prediction = self.sigmoid(self.predict_layer(predict_vector))
+        return prediction
+
+
+# Load dataset from files
+def load_dataset(train_file, test_file, negative_file):
+    train_data = {}
+    test_ratings = []
+    test_negatives = []
+    all_users = set()
+    all_items = set()
+
+    # Load train.rating
+    with open(train_file, 'r') as f:
+        for line in f:
+            user, item, _ = line.strip().split('\t')[:3]
+            user, item = int(user), int(item)
+            train_data[(user, item)] = 1
+            all_users.add(user)
+            all_items.add(item)
+
+    # Load test.rating
+    with open(test_file, 'r') as f:
+        for line in f:
+            user, item, _ = line.strip().split('\t')[:3]
+            user, item = int(user), int(item)
+            test_ratings.append((user, item))
+            all_users.add(user)
+            all_items.add(item)
+
+    # Load test.negative
+    with open(negative_file, 'r') as f:
+        for line in f:
+            parts = line.strip().split('\t')
+            user, pos_item = eval(parts[0])  # (userId, positiveItemId)
+            negatives = list(map(int, parts[1:]))
+            test_negatives.append((user, pos_item, negatives))
+            all_users.add(user)
+            all_items.update(negatives)
+
+    num_users = max(all_users) + 1
+    num_items = max(all_items) + 1
+
+    return train_data, test_ratings, test_negatives, num_users, num_items
+
+
+# Generate training instances
+def get_train_instances(train, num_negatives, num_items):
+    user_input, item_input, labels = [], [], []
+    for (u, i) in train.keys():
+        # Positive instance
+        user_input.append(u)
+        item_input.append(i)
+        labels.append(1)
+        # Negative instances
+        for _ in range(num_negatives):
+            j = np.random.randint(num_items)
+            while (u, j) in train:
+                j = np.random.randint(num_items)
+            user_input.append(u)
+            item_input.append(j)
+            labels.append(0)
+    return user_input, item_input, labels
+
+
+# Training loop
+def train_model(model, train_loader, optimizer, criterion, epochs, device):
+    model.to(device)
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+        for user, item, label in train_loader:
+            user, item, label = user.to(device), item.to(device), label.to(device)
+
+            # Forward pass
+            prediction = model(user, item).squeeze()
+            loss = criterion(prediction, label)
+
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(train_loader):.4f}")
+
+
+# Example usage
+if __name__ == "__main__":
+    # Hyperparameters
+    mf_dim = 8
+    layers = [64, 32, 16, 8]
+    reg_layers = [0, 0, 0, 0]
+    reg_mf = 0
+    num_negatives = 4
+    learning_rate = 0.001
+    batch_size = 256
+    epochs = 20
+
+    # File paths
+    train_file = "Data/ml-1m.train.rating"
+    test_file = "Data/ml-1m.test.rating"
+    negative_file = "Data/ml-1m.test.negative"
+
+    # Load dataset
+    train_data, test_ratings, test_negatives, num_users, num_items = load_dataset(train_file, test_file, negative_file)
+    print(f"Number of users: {num_users}")
+    print(f"Number of items: {num_items}")
+    user_input, item_input, labels = get_train_instances(train_data, num_negatives, num_items)
+    train_dataset = InteractionDataset(user_input, item_input, labels)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    # Model, optimizer, and loss function
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = NeuMF(num_users, num_items, mf_dim, layers, reg_layers, reg_mf)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.BCELoss()
+
+    # Train the model
+    train_model(model, train_loader, optimizer, criterion, epochs, device)
