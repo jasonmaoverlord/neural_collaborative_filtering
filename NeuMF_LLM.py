@@ -75,12 +75,6 @@ class NeuMF(nn.Module):
         self.reg_mf = reg_mf
 
     def _get_text_embeddings(self, texts):
-        """Generate text embeddings using pre-trained embedding model."""
-        inputs = self.tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=128)
-        outputs = self.text_model(**inputs)
-        return outputs.last_hidden_state.mean(dim=1)
-
-    def _get_text_embeddings_llm(self, texts):
         """Generate text embeddings using pre-trained embedding model and map to target dimension."""
         inputs = self.tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=128)
         outputs = self.text_model(**inputs)
