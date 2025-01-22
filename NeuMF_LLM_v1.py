@@ -42,16 +42,16 @@ class NeuMF(nn.Module):
                 user_embeddings = self._get_text_embeddings(user_texts)  # Shape: (num_users, embedding_dim)
                 item_embeddings = self._get_text_embeddings(item_texts)  # Shape: (num_items, embedding_dim)
 
-            # Reduce dimensionality of text embeddings to match mf_dim
-            self.text_embedding_reducer = nn.Linear(user_embeddings.size(1), mf_dim)
+            # Reduce dimensionality of text embeddings to match layers[0] // 2
+            self.text_embedding_reducer = nn.Linear(user_embeddings.size(1), layers[0] // 2)
 
             # GMF Embedding Layers initialized with reduced text embeddings
             self.mf_user_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(user_embeddings), freeze=False)  # Shape: (num_users, mf_dim)
             self.mf_item_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(item_embeddings), freeze=False)  # Shape: (num_items, mf_dim)
 
             # MLP Embedding Layers initialized with reduced text embeddings
-            self.mlp_user_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(user_embeddings), freeze=False)  # Shape: (num_users, mf_dim)
-            self.mlp_item_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(item_embeddings), freeze=False)  # Shape: (num_items, mf_dim)
+            self.mlp_user_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(user_embeddings), freeze=False)  # Shape: (num_users, layers[0] // 2)
+            self.mlp_item_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(item_embeddings), freeze=False)  # Shape: (num_items, layers[0] // 2)
         else:
             # GMF Embedding Layers with default sizes
             self.mf_user_embedding = nn.Embedding(num_users, mf_dim)  # Shape: (num_users, mf_dim)
@@ -84,6 +84,10 @@ class NeuMF(nn.Module):
         mlp_user_latent = self.mlp_user_embedding(user_input)  # Shape: (batch_size, layers[0] // 2)
         mlp_item_latent = self.mlp_item_embedding(item_input)  # Shape: (batch_size, layers[0] // 2)
         mlp_vector = torch.cat([mlp_user_latent, mlp_item_latent], dim=-1)  # Concatenate (Shape: (batch_size, layers[0]))
+
+        # Debug: Print the size of mlp_vector
+        print(f"mlp_vector size: {mlp_vector.size()}")
+
         mlp_vector = self.mlp(mlp_vector)  # Pass through MLP layers (Shape: (batch_size, layers[-1]))
 
         # Concatenate MF and MLP parts to form the final prediction vector
