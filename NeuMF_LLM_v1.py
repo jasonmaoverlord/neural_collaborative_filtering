@@ -90,8 +90,14 @@ class NeuMF(nn.Module):
 
         mlp_vector = self.mlp(mlp_vector)  # Pass through MLP layers (Shape: (batch_size, layers[-1]))
 
+        # Debug: Print the size of mlp_vector after MLP
+        print(f"mlp_vector size after MLP: {mlp_vector.size()}")
+
         # Concatenate MF and MLP parts to form the final prediction vector
         predict_vector = torch.cat([mf_vector, mlp_vector], dim=-1)  # Shape: (batch_size, mf_dim + layers[-1])
+
+        # Debug: Print the size of predict_vector
+        print(f"predict_vector size: {predict_vector.size()}")
 
         # Final Prediction
         prediction = self.sigmoid(self.predict_layer(predict_vector))  # Shape: (batch_size, 1)
