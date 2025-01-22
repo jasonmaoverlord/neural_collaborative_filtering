@@ -71,7 +71,7 @@ class NeuMF(nn.Module):
         self.mlp = nn.Sequential(*mlp_modules)
 
         # Final Prediction Layer (input size should match mf_dim + layers[-1])
-        self.predict_layer = nn.Linear(mf_dim + layers[-1], 1)  # Shape: (batch_size, 1)
+        self.predict_layer = nn.Linear(40, 1)  # Adjusted to match predict_vector shape
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, user_input, item_input):
@@ -84,20 +84,19 @@ class NeuMF(nn.Module):
         mlp_user_latent = self.mlp_user_embedding(user_input)  # Shape: (batch_size, layers[0] // 2)
         mlp_item_latent = self.mlp_item_embedding(item_input)  # Shape: (batch_size, layers[0] // 2)
         mlp_vector = torch.cat([mlp_user_latent, mlp_item_latent], dim=-1)  # Concatenate (Shape: (batch_size, layers[0]))
-
-        # Debug: Print the size of mlp_vector
-        print(f"mlp_vector size: {mlp_vector.size()}")
-
         mlp_vector = self.mlp(mlp_vector)  # Pass through MLP layers (Shape: (batch_size, layers[-1]))
 
-        # Debug: Print the size of mlp_vector after MLP
-        print(f"mlp_vector size after MLP: {mlp_vector.size()}")
-
         # Concatenate MF and MLP parts to form the final prediction vector
-        predict_vector = torch.cat([mf_vector, mlp_vector], dim=-1)  # Shape: (batch_size, mf_dim + layers[-1])
+        predict_vector = torch.cat([mf_vector, mlp_vector], dim=-1)  # Shape: (batch_size, 40)
 
-        # Debug: Print the size of predict_vector
-        print(f"predict_vector size: {predict_vector.size()}")
+        # Debug: Print shapes
+        print(f"mf_user_latent shape: {mf_user_latent.shape}")
+        print(f"mf_item_latent shape: {mf_item_latent.shape}")
+        print(f"mf_vector shape: {mf_vector.shape}")
+        print(f"mlp_user_latent shape: {mlp_user_latent.shape}")
+        print(f"mlp_item_latent shape: {mlp_item_latent.shape}")
+        print(f"mlp_vector shape: {mlp_vector.shape}")
+        print(f"predict_vector shape: {predict_vector.shape}")
 
         # Final Prediction
         prediction = self.sigmoid(self.predict_layer(predict_vector))  # Shape: (batch_size, 1)
