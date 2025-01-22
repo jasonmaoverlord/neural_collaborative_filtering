@@ -42,13 +42,16 @@ class NeuMF(nn.Module):
                 user_embeddings = self._get_text_embeddings(user_texts)  # Shape: (num_users, embedding_dim)
                 item_embeddings = self._get_text_embeddings(item_texts)  # Shape: (num_items, embedding_dim)
 
-            # GMF Embedding Layers initialized with text embeddings
-            self.mf_user_embedding = nn.Embedding.from_pretrained(user_embeddings, freeze=False)  # Shape: (num_users, embedding_dim)
-            self.mf_item_embedding = nn.Embedding.from_pretrained(item_embeddings, freeze=False)  # Shape: (num_items, embedding_dim)
+            # Reduce dimensionality of text embeddings to match mf_dim
+            self.text_embedding_reducer = nn.Linear(user_embeddings.size(1), mf_dim)
 
-            # MLP Embedding Layers initialized with text embeddings
-            self.mlp_user_embedding = nn.Embedding.from_pretrained(user_embeddings, freeze=False)  # Shape: (num_users, embedding_dim)
-            self.mlp_item_embedding = nn.Embedding.from_pretrained(item_embeddings, freeze=False)  # Shape: (num_items, embedding_dim)
+            # GMF Embedding Layers initialized with reduced text embeddings
+            self.mf_user_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(user_embeddings), freeze=False)  # Shape: (num_users, mf_dim)
+            self.mf_item_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(item_embeddings), freeze=False)  # Shape: (num_items, mf_dim)
+
+            # MLP Embedding Layers initialized with reduced text embeddings
+            self.mlp_user_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(user_embeddings), freeze=False)  # Shape: (num_users, mf_dim)
+            self.mlp_item_embedding = nn.Embedding.from_pretrained(self.text_embedding_reducer(item_embeddings), freeze=False)  # Shape: (num_items, mf_dim)
         else:
             # GMF Embedding Layers with default sizes
             self.mf_user_embedding = nn.Embedding(num_users, mf_dim)  # Shape: (num_users, mf_dim)
