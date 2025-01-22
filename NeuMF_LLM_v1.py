@@ -93,13 +93,13 @@ class NeuMF(nn.Module):
         predict_vector = torch.cat([mf_vector, mlp_vector], dim=-1)  # Shape: (batch_size, mf_dim + layers[-1])
 
         # Debug: Print shapes
-        print(f"mf_user_latent shape: {mf_user_latent.shape}")
-        print(f"mf_item_latent shape: {mf_item_latent.shape}")
-        print(f"mf_vector shape: {mf_vector.shape}")
-        print(f"mlp_user_latent shape: {mlp_user_latent.shape}")
-        print(f"mlp_item_latent shape: {mlp_item_latent.shape}")
-        print(f"mlp_vector shape: {mlp_vector.shape}")
-        print(f"predict_vector shape: {predict_vector.shape}")
+        # print(f"mf_user_latent shape: {mf_user_latent.shape}")
+        # print(f"mf_item_latent shape: {mf_item_latent.shape}")
+        # print(f"mf_vector shape: {mf_vector.shape}")
+        # print(f"mlp_user_latent shape: {mlp_user_latent.shape}")
+        # print(f"mlp_item_latent shape: {mlp_item_latent.shape}")
+        # print(f"mlp_vector shape: {mlp_vector.shape}")
+        # print(f"predict_vector shape: {predict_vector.shape}")
 
         # Final Prediction
         prediction = self.sigmoid(self.predict_layer(predict_vector))  # Shape: (batch_size, 1)
