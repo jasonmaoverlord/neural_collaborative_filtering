@@ -60,9 +60,11 @@ class NeuMF(nn.Module):
 
         # MLP Layers (input size should be correctly adjusted)
         mlp_modules = []
+        input_size = layers[0]  # Input size is the concatenated user and item embeddings
         for i in range(1, len(layers)):
-            mlp_modules.append(nn.Linear(layers[i - 1], layers[i]))  # Each layer's input and output size should match
+            mlp_modules.append(nn.Linear(input_size, layers[i]))  # Each layer's input and output size should match
             mlp_modules.append(nn.ReLU())  # Apply ReLU for activation
+            input_size = layers[i]  # Update input size for the next layer
         self.mlp = nn.Sequential(*mlp_modules)
 
         # Final Prediction Layer (input size should match mf_dim + layers[-1])
