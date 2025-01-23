@@ -153,11 +153,11 @@ def load_dataset(train_file, test_file, negative_file):
     num_users = len(all_users)
     num_items = len(all_items)
 
-    return train_data, test_ratings, test_negatives, num_users, num_items
+    return train_data, test_ratings, test_negatives, num_users, num_items, all_users, all_items
 
 
 # Generate training instances
-def get_train_instances(train, num_negatives, num_items):
+def get_train_instances(train, num_negatives, all_items):
     user_input, item_input, labels = [], [], []
     for (u, i) in train.keys():
         # Positive instance
@@ -166,9 +166,9 @@ def get_train_instances(train, num_negatives, num_items):
         labels.append(1)
         # Negative instances
         for _ in range(num_negatives):
-            j = random.choice(num_items)
+            j = random.choice(list(all_items))
             while (u, j) in train:
-                j = random.choice(num_items)
+                j = random.choice(list(all_items))
             user_input.append(u)
             item_input.append(j)
             labels.append(0)
